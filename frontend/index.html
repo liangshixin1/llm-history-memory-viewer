@@ -1,0 +1,339 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Claude 对话展示器</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div id="app" v-cloak>
+      <aside class="sidebar">
+        <header class="brand">
+          <div>
+            <p class="eyebrow">Claude Archive</p>
+            <h1>对话展示器</h1>
+          </div>
+        </header>
+
+        <label class="upload" :class="{ active: isDragging }" @dragover.prevent="isDragging = true" @dragleave.prevent="isDragging = false" @drop.prevent="handleDrop">
+          <input type="file" accept=".zip,.json,.txt,application/zip,application/json" @change="handleFileChange" />
+          <span class="upload-icon">↑</span>
+          <strong>导入 Claude ZIP</strong>
+          <small>自动解析 conversations、memories、users、projects</small>
+        </label>
+
+        <section class="profile-card" v-if="activeUser || memories.length">
+          <div class="avatar">{{ userInitial }}</div>
+          <div>
+            <strong>{{ userDisplayName }}</strong>
+            <small v-if="activeUser?.email_address">{{ activeUser.email_address }}</small>
+            <small v-else>{{ memories.length }} 条 Claude 记忆</small>
+          </div>
+        </section>
+
+        <section class="support-import">
+          <p class="eyebrow">Profile Data</p>
+          <label class="file-pill">
+            <input type="file" accept=".json,application/json" @change="handleUsersFile" />
+            <span class="file-pill-icon">U</span>
+            <span class="file-pill-text">
+              <strong>users.json</strong>
+              <small>{{ users.length ? `已导入 ${users.length} 个账号` : '导入用户资料' }}</small>
+            </span>
+          </label>
+          <label class="file-pill">
+            <input type="file" accept=".json,application/json" @change="handleMemoriesFile" />
+            <span class="file-pill-icon">M</span>
+            <span class="file-pill-text">
+              <strong>memories.json</strong>
+              <small>{{ memories.length ? `已导入 ${memories.length} 条记忆` : '导入 Claude 记忆' }}</small>
+            </span>
+          </label>
+          <label class="file-pill">
+            <input type="file" accept=".json,application/json" @change="handleProjectsFile" />
+            <span class="file-pill-icon">P</span>
+            <span class="file-pill-text">
+              <strong>project.json</strong>
+              <small>{{ projects.length ? `已导入 ${projects.length} 个项目` : '补充导入项目' }}</small>
+            </span>
+          </label>
+        </section>
+
+        <section class="stats" v-if="stats">
+          <div>
+            <span>{{ stats.conversation_count }}</span>
+            <small>会话</small>
+          </div>
+          <div>
+            <span>{{ stats.message_count }}</span>
+            <small>消息</small>
+          </div>
+          <div>
+            <span>{{ stats.sender_counts?.assistant || 0 }}</span>
+            <small>Claude</small>
+          </div>
+        </section>
+
+        <div class="search-row" v-if="conversations.length">
+          <input v-model.trim="query" type="search" placeholder="搜索标题、摘要、正文" />
+        </div>
+
+        <div class="view-switch" v-if="conversations.length || memories.length || projects.length">
+          <button :class="{ selected: viewMode === 'reader' }" @click="viewMode = 'reader'">对话</button>
+          <button :class="{ selected: viewMode === 'memories' }" @click="viewMode = 'memories'">记忆</button>
+          <button :class="{ selected: viewMode === 'projects' }" @click="viewMode = 'projects'">项目</button>
+          <button :class="{ selected: viewMode === 'migration' }" @click="viewMode = 'migration'">人格迁移</button>
+        </div>
+
+        <nav class="conversation-list" v-if="viewMode === 'reader'">
+          <button
+            v-for="conversation in filteredConversations"
+            :key="conversation.id || conversation.title"
+            class="conversation-item"
+            :class="{ selected: selectedConversation?.id === conversation.id }"
+            @click="selectConversation(conversation)"
+          >
+            <span>{{ conversation.title }}</span>
+            <small>{{ formatDate(conversation.updated_at || conversation.created_at) }} · {{ conversation.message_count }} 条</small>
+          </button>
+        </nav>
+      </aside>
+
+      <main class="reader">
+        <section class="empty" v-if="viewMode === 'reader' && !selectedConversation && !isLoading">
+          <p class="eyebrow">Local First</p>
+          <h2>把 Claude 导出的 JSON 拖进来</h2>
+          <p>解析会在 Flask 后端完成，当前版本只返回结构化结果，不保存原始对话文件。</p>
+        </section>
+
+        <section class="empty" v-if="isLoading">
+          <h2>正在解析...</h2>
+          <p>大文件可能需要几秒钟。</p>
+        </section>
+
+        <section class="error" v-if="error">
+          {{ error }}
+        </section>
+
+        <article class="memories-view" v-if="viewMode === 'memories'">
+          <header class="conversation-header">
+            <div>
+              <p class="eyebrow">Claude Memories</p>
+              <h2>长期记忆</h2>
+            </div>
+            <div class="header-meta">
+              <span>{{ memories.length }} 条</span>
+              <span v-if="selectedAccountId">{{ selectedAccountId }}</span>
+            </div>
+          </header>
+
+          <section class="empty-panel" v-if="!memories.length">
+            <h3>尚未导入 memories.json</h3>
+            <p>在左侧 Profile Data 区域导入后，这里会展示 Claude 保存的长期记忆，并可用于人格迁移打包。</p>
+          </section>
+
+          <section class="memory-list" v-else>
+            <details v-for="(memory, index) in memories" :key="memory.account_uuid || index" class="memory-card" open>
+              <summary>
+                <span>Memory {{ index + 1 }}</span>
+                <button @click.stop="copyText(memoryBody(memory), `memory-${index}`)">
+                  {{ copyStatus[`memory-${index}`] || '复制' }}
+                </button>
+              </summary>
+              <div class="memory-meta" v-if="memory.account_uuid">
+                account_uuid: {{ memory.account_uuid }}
+              </div>
+              <div class="markdown-segment" v-html="renderMarkdown(memoryBody(memory))"></div>
+            </details>
+          </section>
+        </article>
+
+        <article class="projects-view" v-if="viewMode === 'projects'">
+          <header class="conversation-header">
+            <div>
+              <p class="eyebrow">Claude Projects</p>
+              <h2>项目资料</h2>
+            </div>
+            <div class="header-meta">
+              <span>{{ projects.length }} 个项目</span>
+            </div>
+          </header>
+
+          <section class="empty-panel" v-if="!projects.length">
+            <h3>尚未导入 projects</h3>
+            <p>导入 Claude 原始 zip 后，这里会展示 `projects/*.json` 中的项目说明和项目文档，并会进入人格迁移打包。</p>
+          </section>
+
+          <section class="project-list" v-else>
+            <details v-for="(project, index) in projects" :key="project.id || project.uuid || index" class="project-card" open>
+              <summary>
+                <span>{{ project.name || '未命名项目' }}</span>
+                <button @click.stop="copyText(projectBody(project), `project-${index}`)">
+                  {{ copyStatus[`project-${index}`] || '复制项目' }}
+                </button>
+              </summary>
+              <div class="project-meta">
+                <span>{{ project.doc_count || project.docs?.length || 0 }} 个文档</span>
+                <span v-if="project.created_at">创建 {{ formatDate(project.created_at) }}</span>
+                <span v-if="project.updated_at">更新 {{ formatDate(project.updated_at) }}</span>
+              </div>
+              <p class="project-description">{{ project.description || '无项目描述' }}</p>
+              <details v-for="(doc, docIndex) in project.docs || []" :key="doc.id || doc.filename || docIndex" class="project-doc">
+                <summary>{{ doc.filename || '未命名文档' }}</summary>
+                <div class="markdown-segment" v-html="renderMarkdown(doc.content || '（空文档）')"></div>
+              </details>
+            </details>
+          </section>
+        </article>
+
+        <article class="migration" v-if="viewMode === 'migration'">
+          <header class="conversation-header">
+            <div>
+              <p class="eyebrow">Persona Migration</p>
+              <h2>大模型人格迁移</h2>
+            </div>
+            <button class="copy-main" @click="copyText(migrationPrompt, 'prompt')">{{ copyStatus.prompt || '复制提示词' }}</button>
+          </header>
+
+          <section class="migration-controls">
+            <div class="range-group">
+              <button v-for="option in rangeOptions" :key="option.value" :class="{ selected: migrationRange === option.value }" @click="migrationRange = option.value">
+                {{ option.label }}
+              </button>
+            </div>
+            <div class="custom-range" v-if="migrationRange === 'custom'">
+              <label>开始 <input v-model="customStart" type="date" /></label>
+              <label>结束 <input v-model="customEnd" type="date" /></label>
+            </div>
+          </section>
+
+          <section class="migration-summary">
+            <div>
+              <span>{{ memories.length }}</span>
+              <small>记忆条目</small>
+            </div>
+            <div>
+              <span>{{ migrationConversations.length }}</span>
+              <small>会话摘要</small>
+            </div>
+            <div>
+              <span>{{ migrationPrompt.length }}</span>
+              <small>提示词字符</small>
+            </div>
+            <div>
+              <span>{{ projects.length }}</span>
+              <small>项目</small>
+            </div>
+          </section>
+
+          <section class="prompt-preview">
+            <div class="prompt-toolbar">
+              <strong>装配结果</strong>
+              <button @click="copyText(migrationPrompt, 'prompt')">{{ copyStatus.prompt || '复制' }}</button>
+            </div>
+            <textarea readonly :value="migrationPrompt"></textarea>
+          </section>
+        </article>
+
+        <article class="conversation" v-if="viewMode === 'reader' && selectedConversation">
+          <header class="conversation-header">
+            <div>
+              <p class="eyebrow">{{ formatDate(selectedConversation.created_at) }}</p>
+              <h2>{{ selectedConversation.title }}</h2>
+            </div>
+            <div class="header-meta">
+              <span>{{ selectedConversation.human_count }} 用户</span>
+              <span>{{ selectedConversation.assistant_count }} Claude</span>
+            </div>
+          </header>
+
+          <details class="summary" v-if="selectedConversation.summary" open>
+            <summary>会话摘要</summary>
+            <p>{{ selectedConversation.summary }}</p>
+          </details>
+
+          <div class="warnings" v-if="warnings.length">
+            <strong>解析提示</strong>
+            <p v-for="warning in warnings" :key="warning">{{ warning }}</p>
+          </div>
+
+          <section class="messages">
+            <article v-for="message in selectedConversation.messages" :key="message.id || message.created_at" class="message" :class="message.sender">
+              <div class="message-meta">
+                <span>{{ senderLabel(message.sender) }}</span>
+                <time>{{ formatDateTime(message.created_at) }}</time>
+              </div>
+
+              <div v-if="visibleBlocks(message).length" class="blocks">
+                <template v-for="(block, index) in visibleBlocks(message)" :key="index">
+                  <details v-if="block.type === 'thinking'" class="block thinking">
+                    <summary>思考内容</summary>
+                    <pre>{{ block.text }}</pre>
+                  </details>
+
+                  <div v-else-if="block.type === 'text'" class="block text-block">
+                    <template v-for="(segment, segmentIndex) in splitTextSegments(block.text)" :key="segmentIndex">
+                      <div v-if="segment.type === 'text'" class="markdown-segment" v-html="renderMarkdown(segment.text)"></div>
+                      <div v-else-if="segment.type === 'code'" class="code-card">
+                        <div class="code-toolbar">
+                          <span>{{ segment.language || 'code' }}</span>
+                          <button @click="copyText(segment.text, codeCopyKey(message, index, segmentIndex))">
+                            {{ copyStatus[codeCopyKey(message, index, segmentIndex)] || '复制' }}
+                          </button>
+                        </div>
+                        <pre class="code-segment"><code>{{ segment.text }}</code></pre>
+                      </div>
+                      <figure v-else class="mermaid-card">
+                        <figcaption>
+                          <span>{{ segment.title || 'Mermaid' }}</span>
+                          <button @click="copyText(segment.text, codeCopyKey(message, index, segmentIndex))">
+                            {{ copyStatus[codeCopyKey(message, index, segmentIndex)] || '复制源码' }}
+                          </button>
+                        </figcaption>
+                        <pre class="mermaid mermaid-diagram">{{ segment.text }}</pre>
+                      </figure>
+                    </template>
+                  </div>
+
+                  <details v-else class="block tool-block">
+                    <summary>{{ blockLabel(block) }}</summary>
+                    <pre>{{ block.text }}</pre>
+                  </details>
+                </template>
+              </div>
+
+              <div v-else-if="!message.blocks.length" class="plain-text">
+                <template v-for="(segment, segmentIndex) in splitTextSegments(message.text)" :key="segmentIndex">
+                  <div v-if="segment.type === 'text'" class="markdown-segment" v-html="renderMarkdown(segment.text)"></div>
+                  <div v-else-if="segment.type === 'code'" class="code-card">
+                    <div class="code-toolbar">
+                      <span>{{ segment.language || 'code' }}</span>
+                      <button @click="copyText(segment.text, codeCopyKey(message, 'plain', segmentIndex))">
+                        {{ copyStatus[codeCopyKey(message, 'plain', segmentIndex)] || '复制' }}
+                      </button>
+                    </div>
+                    <pre class="code-segment"><code>{{ segment.text }}</code></pre>
+                  </div>
+                  <figure v-else class="mermaid-card">
+                    <figcaption>
+                      <span>{{ segment.title || 'Mermaid' }}</span>
+                      <button @click="copyText(segment.text, codeCopyKey(message, 'plain', segmentIndex))">
+                        {{ copyStatus[codeCopyKey(message, 'plain', segmentIndex)] || '复制源码' }}
+                      </button>
+                    </figcaption>
+                    <pre class="mermaid mermaid-diagram">{{ segment.text }}</pre>
+                  </figure>
+                </template>
+              </div>
+            </article>
+          </section>
+        </article>
+      </main>
+    </div>
+
+    <script src="/vendor/vue.global.prod.js"></script>
+    <script src="/vendor/mermaid-loader.js"></script>
+    <script src="/app.js"></script>
+  </body>
+</html>

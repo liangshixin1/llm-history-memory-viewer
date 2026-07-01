@@ -1,0 +1,31 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+node_modules/
+.DS_Store
+
+# Generated frontend vendor files. Recreated by `npm install`.
+frontend/vendor/vue.global.prod.js
+frontend/vendor/mermaid/
+
+# Local Claude exports and private data.
+*.zip
+conversations.json
+memories.json
+users.json
+projects/
+Claude项目/
+Claude*/
+exports/
+data/
+uploads/
+instance/
+*.sqlite
+*.sqlite3
+*.db
+
+# Local environment and logs.
+.env
+.env.*
+*.log

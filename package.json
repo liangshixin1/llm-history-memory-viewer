@@ -1,0 +1,13 @@
+{
+  "name": "claude-conversation-viewer",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "postinstall": "node scripts/copy-vendor.js",
+    "prepare-vendor": "node scripts/copy-vendor.js"
+  },
+  "dependencies": {
+    "mermaid": "^10.9.3",
+    "vue": "^3.5.39"
+  }
+}
