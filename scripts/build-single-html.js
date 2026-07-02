@@ -4,7 +4,7 @@ const path = require("path");
 const root = path.resolve(__dirname, "..");
 const frontendDir = path.join(root, "frontend");
 const distDir = path.join(root, "dist");
-const outputPath = path.join(distDir, "Claude对话展示器.html");
+const outputPath = path.join(distDir, "llm-history-memory-viewer.html");
 
 function readFrontendFile(relativePath) {
   return fs.readFileSync(path.join(frontendDir, relativePath), "utf8");

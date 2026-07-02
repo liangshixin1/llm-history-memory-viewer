@@ -1,10 +1,21 @@
-# Claude 对话展示器
+# LLM History Memory Viewer
 
-这是一个可以在本地打开的网页应用，用来阅读和整理 Claude 导出的聊天记录。
+> 换大模型时，最麻烦的不是重新登录，而是重新介绍自己。
+> 这个工具可以读取 Claude 导出的聊天记录、长期记忆和项目资料，在本地整理成一份可复制的大模型记忆迁移提示词。
 
-普通使用者不需要安装 Python、Node.js、npm，也不需要启动服务器。只要打开发布好的 HTML 文件，把 Claude 导出的 zip 拖进去，就能在浏览器里查看对话。
+## 直接使用
 
-这个应用的特色功能是“大模型人格迁移”：它会把 Claude 导出包里的长期记忆、会话摘要、项目资料和时间范围内的互动记录整理成一份可复制的迁移提示词。你可以把这份提示词交给其他大模型，让新模型更快理解你的长期背景、表达偏好、正在推进的项目和协作习惯。
+无需安装。下载单页文件后双击打开即可使用：
+
+👉 [下载最新版](https://github.com/liangshixin1/llm-history-memory-viewer/releases/latest)
+
+进入页面后，滑到最下面，在 **Assets** 中下载：
+
+**llm-history-memory-viewer.html**
+
+然后把 Claude 导出的 zip 文件拖入页面即可。
+
+所有解析都在浏览器本地完成，不上传任何聊天记录。
 
 ## 可以做什么
 
@@ -34,7 +45,7 @@
 
 ## 普通用户怎么用
 
-1. 下载 `dist` 文件夹下的 `Claude对话展示器.html`，然后打开它。
+1. 从 [最新版 Release](https://github.com/liangshixin1/llm-history-memory-viewer/releases/latest) 的 **Assets** 中下载 `llm-history-memory-viewer.html`，然后打开它。
 2. 从 Claude 导出你的数据包，通常是一个 `.zip` 文件。
 3. 把这个 `.zip` 文件拖进网页左侧的导入区域，或点击导入区域选择文件。
 4. 导入完成后，在左侧选择对话，在右侧阅读内容。
@@ -44,7 +55,7 @@
 
 ## 重要说明
 
-- 可以直接分发给普通用户的是 `dist/Claude对话展示器.html`。
+- 可以直接分发给普通用户的是 Release Assets 中的 `llm-history-memory-viewer.html`。
 - `frontend/index.html` 是开发源码入口，它还依赖旁边的 CSS、JS 和 vendor 文件，不能单独拿出来发给普通用户。
 - 生成发布版后，普通用户不需要运行 `npm install` 或 `npm run build:single`。
 
@@ -54,7 +65,7 @@
 
 这是一个纯前端 Webapp。源码保留为多个文件，方便维护；发布时构建成单个 HTML 文件，方便分发。
 
-开发约定：每次完成新的开发任务后，都要重新运行 `npm run build:single`，确保 `dist/Claude对话展示器.html` 是最新版本。
+开发约定：每次完成新的开发任务后，都要重新运行 `npm run build:single`，确保 `dist/llm-history-memory-viewer.html` 是最新版本。
 
 核心文件：
 
@@ -88,7 +99,7 @@ npm run build:single
 产物位于：
 
 ```text
-dist/Claude对话展示器.html
+dist/llm-history-memory-viewer.html
 ```
 
 把这个 HTML 文件发给普通用户即可。
