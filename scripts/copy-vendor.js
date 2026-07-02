@@ -9,6 +9,12 @@ function copyFile(source, target) {
   fs.copyFileSync(source, target);
 }
 
+function copyDir(source, target) {
+  fs.rmSync(target, { recursive: true, force: true });
+  fs.mkdirSync(target, { recursive: true });
+  fs.cpSync(source, target, { recursive: true });
+}
+
 copyFile(
   path.join(root, "node_modules", "vue", "dist", "vue.global.prod.js"),
   path.join(vendorDir, "vue.global.prod.js")
@@ -22,6 +28,21 @@ copyFile(
 copyFile(
   path.join(root, "node_modules", "mermaid", "dist", "mermaid.min.js"),
   path.join(vendorDir, "mermaid.min.js")
+);
+
+copyFile(
+  path.join(root, "node_modules", "katex", "dist", "katex.min.css"),
+  path.join(vendorDir, "katex", "katex.min.css")
+);
+
+copyFile(
+  path.join(root, "node_modules", "katex", "dist", "katex.min.js"),
+  path.join(vendorDir, "katex", "katex.min.js")
+);
+
+copyDir(
+  path.join(root, "node_modules", "katex", "dist", "fonts"),
+  path.join(vendorDir, "katex", "fonts")
 );
 
 console.log("Frontend vendor assets prepared.");

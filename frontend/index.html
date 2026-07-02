@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Claude 对话展示器</title>
+    <link rel="stylesheet" href="vendor/katex/katex.min.css" />
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
@@ -32,7 +33,7 @@
           </div>
         </section>
 
-        <section class="support-import">
+        <section class="support-import" v-if="showProfileImport">
           <p class="eyebrow">Profile Data</p>
           <label class="file-pill">
             <input type="file" accept=".json,application/json" @change="handleUsersFile" />
@@ -60,20 +61,51 @@
           </label>
         </section>
 
-        <section class="stats" v-if="stats">
-          <div>
-            <span>{{ stats.conversation_count }}</span>
-            <small>会话</small>
-          </div>
-          <div>
-            <span>{{ stats.message_count }}</span>
-            <small>消息</small>
-          </div>
-          <div>
-            <span>{{ stats.sender_counts?.assistant || 0 }}</span>
-            <small>Claude</small>
-          </div>
-        </section>
+        <details class="stats-panel" v-if="stats" open>
+          <summary>统计</summary>
+          <section class="stats">
+            <div>
+              <span>{{ formatNumber(stats.conversation_count) }}</span>
+              <small>会话</small>
+            </div>
+            <div>
+              <span>{{ formatNumber(stats.message_count) }}</span>
+              <small>消息</small>
+            </div>
+            <div>
+              <span>{{ formatNumber(stats.sender_counts?.assistant || 0) }}</span>
+              <small>Claude</small>
+            </div>
+            <div>
+              <span>{{ formatNumber(stats.total_char_count || 0) }}</span>
+              <small>总字数</small>
+            </div>
+          </section>
+          <section class="heatmap" v-if="conversationHeatmap.days.length">
+            <div class="heatmap-head">
+              <strong>对话热力图</strong>
+              <small>{{ conversationHeatmap.totalDays }} 天 · 峰值 {{ conversationHeatmap.maxCount }} 场</small>
+            </div>
+            <div class="heatmap-grid" :style="{ gridTemplateColumns: `repeat(${conversationHeatmap.weeks.length}, 10px)` }">
+              <span
+                v-for="day in conversationHeatmap.days"
+                :key="day.key"
+                class="heatmap-day"
+                :class="`level-${day.level}`"
+                :title="day.tooltip"
+              ></span>
+            </div>
+            <div class="heatmap-legend">
+              <span>少</span>
+              <i class="heatmap-day level-0"></i>
+              <i class="heatmap-day level-1"></i>
+              <i class="heatmap-day level-2"></i>
+              <i class="heatmap-day level-3"></i>
+              <i class="heatmap-day level-4"></i>
+              <span>多</span>
+            </div>
+          </section>
+        </details>
 
         <div class="search-row" v-if="conversations.length">
           <input v-model.trim="query" type="search" placeholder="搜索标题、摘要、正文" />
@@ -84,6 +116,16 @@
           <button :class="{ selected: viewMode === 'memories' }" @click="viewMode = 'memories'">记忆</button>
           <button :class="{ selected: viewMode === 'projects' }" @click="viewMode = 'projects'">项目</button>
           <button :class="{ selected: viewMode === 'migration' }" @click="viewMode = 'migration'">人格迁移</button>
+        </div>
+
+        <div class="sort-row" v-if="viewMode === 'reader' && conversations.length">
+          <label>
+            日期排序
+            <select v-model="conversationSortOrder">
+              <option value="desc">新到旧</option>
+              <option value="asc">旧到新</option>
+            </select>
+          </label>
         </div>
 
         <nav class="conversation-list" v-if="viewMode === 'reader'">
@@ -103,7 +145,7 @@
       <main class="reader">
         <section class="empty" v-if="viewMode === 'reader' && !selectedConversation && !isLoading">
           <p class="eyebrow">Local First</p>
-          <h2>把 Claude 导出的 JSON 拖进来</h2>
+          <h2>把 Claude 导出的 ZIP 拖进来</h2>
           <p>解析会在浏览器本地完成，不上传、不保存原始对话文件。</p>
         </section>
 
@@ -335,6 +377,7 @@
     <script src="vendor/vue.global.prod.js"></script>
     <script src="vendor/jszip.min.js"></script>
     <script src="vendor/mermaid.min.js"></script>
+    <script src="vendor/katex/katex.min.js"></script>
     <script src="importer.js"></script>
     <script src="app.js"></script>
   </body>

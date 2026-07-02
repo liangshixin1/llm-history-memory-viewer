@@ -9,6 +9,7 @@ node_modules/
 frontend/vendor/vue.global.prod.js
 frontend/vendor/jszip.min.js
 frontend/vendor/mermaid.min.js
+frontend/vendor/katex/
 frontend/vendor/mermaid/
 
 # Local Claude exports and private data.

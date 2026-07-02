@@ -317,10 +317,12 @@
     const senderCounts = {};
     const contentTypeCounts = {};
     let totalMessages = 0;
+    let totalChars = 0;
 
     conversations.forEach((conversation) => {
       conversation.messages.forEach((message) => {
         totalMessages += 1;
+        totalChars += countTextChars(message.text);
         senderCounts[message.sender] = (senderCounts[message.sender] || 0) + 1;
         message.blocks.forEach((block) => {
           contentTypeCounts[block.type] = (contentTypeCounts[block.type] || 0) + 1;
@@ -331,10 +333,15 @@
     return {
       conversation_count: conversations.length,
       message_count: totalMessages,
+      total_char_count: totalChars,
       sender_counts: senderCounts,
       content_type_counts: contentTypeCounts,
       has_warnings: Boolean(warnings.length),
     };
+  }
+
+  function countTextChars(value) {
+    return String(value || "").replace(/\s/g, "").length;
   }
 
   function normalizeProject(project, sourcePath) {

@@ -38,7 +38,9 @@ createApp({
     const query = ref("");
     const isLoading = ref(false);
     const isDragging = ref(false);
+    const showProfileImport = ref(true);
     const viewMode = ref("reader");
+    const conversationSortOrder = ref("desc");
     const migrationRange = ref("6m");
     const customStart = ref("");
     const customEnd = ref("");
@@ -55,18 +57,24 @@ createApp({
 
     const filteredConversations = computed(() => {
       const keyword = query.value.toLowerCase();
-      if (!keyword) return conversations.value;
+      const filtered = keyword
+        ? conversations.value.filter((conversation) => {
+            const haystack = [
+              conversation.title,
+              conversation.summary,
+              ...conversation.messages.map((message) => message.text),
+            ]
+              .join("\n")
+              .toLowerCase();
+            return haystack.includes(keyword);
+          })
+        : [...conversations.value];
 
-      return conversations.value.filter((conversation) => {
-        const haystack = [
-          conversation.title,
-          conversation.summary,
-          ...conversation.messages.map((message) => message.text),
-        ]
-          .join("\n")
-          .toLowerCase();
-        return haystack.includes(keyword);
-      });
+      return filtered.sort(compareConversationsByDate);
+    });
+
+    const conversationHeatmap = computed(() => {
+      return buildConversationHeatmap(conversations.value);
     });
 
     const selectedAccountId = computed(() => {
@@ -120,7 +128,8 @@ createApp({
         users.value = payload.users || [];
         memories.value = payload.memories || [];
         projects.value = payload.projects || [];
-        selectedConversation.value = conversations.value[0] || null;
+        showProfileImport.value = !hasProfilePayload(payload);
+        selectedConversation.value = [...conversations.value].sort(compareConversationsByDate)[0] || null;
       } catch (err) {
         error.value = err.message;
       } finally {
@@ -195,6 +204,10 @@ createApp({
       return [];
     }
 
+    function hasProfilePayload(payload) {
+      return Boolean((payload.users || []).length || (payload.memories || []).length || (payload.projects || []).length);
+    }
+
     function visibleBlocks(message) {
       return (message.blocks || []).filter((block) => !hiddenBlockTypes.has(block.type));
     }
@@ -258,12 +271,38 @@ createApp({
     }
 
     function renderInlineMarkdown(value) {
-      const codeSpans = [];
-      let html = escapeHtml(value).replace(/`([^`\n]+)`/g, (_, code) => {
-        const token = `\u0000CODE${codeSpans.length}\u0000`;
-        codeSpans.push(`<code>${code}</code>`);
+      const tokens = [];
+      let raw = String(value || "");
+
+      raw = raw.replace(/`([^`\n]+)`/g, (_, code) => {
+        const token = `\u0000TOKEN${tokens.length}\u0000`;
+        tokens.push(`<code>${escapeHtml(code)}</code>`);
         return token;
       });
+
+      raw = raw
+        .replace(/\\\[([\s\S]+?)\\\]/g, (_, formula) => {
+          const token = `\u0000TOKEN${tokens.length}\u0000`;
+          tokens.push(renderLatex(formula, true, "\\[", "\\]"));
+          return token;
+        })
+        .replace(/\\\(([\s\S]+?)\\\)/g, (_, formula) => {
+          const token = `\u0000TOKEN${tokens.length}\u0000`;
+          tokens.push(renderLatex(formula, false, "\\(", "\\)"));
+          return token;
+        })
+        .replace(/\$\$([\s\S]+?)\$\$/g, (_, formula) => {
+          const token = `\u0000TOKEN${tokens.length}\u0000`;
+          tokens.push(renderLatex(formula, true, "$$", "$$"));
+          return token;
+        })
+        .replace(/(^|[^\w\\])\$([^\s$][\s\S]*?[^\s$])\$(?![\w])/g, (_, prefix, formula) => {
+          const token = `\u0000TOKEN${tokens.length}\u0000`;
+          tokens.push(renderLatex(formula, false, "$", "$"));
+          return `${prefix}${token}`;
+        });
+
+      let html = escapeHtml(raw);
 
       html = html
         .replace(/\*\*([\s\S]+?)\*\*/g, "<strong>$1</strong>")
@@ -272,11 +311,31 @@ createApp({
         .replace(/(^|[^_])_([^_\n]+?)_(?!_)/g, "$1<em>$2</em>")
         .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noreferrer">$1</a>');
 
-      codeSpans.forEach((code, index) => {
-        html = html.replace(`\u0000CODE${index}\u0000`, code);
+      tokens.forEach((content, index) => {
+        html = html.replace(`\u0000TOKEN${index}\u0000`, content);
       });
 
       return html;
+    }
+
+    function renderLatex(formula, displayMode, leftDelimiter, rightDelimiter) {
+      const source = String(formula || "").trim();
+      if (!source) return "";
+
+      if (!window.katex) {
+        return escapeHtml(`${leftDelimiter}${source}${rightDelimiter}`);
+      }
+
+      try {
+        return window.katex.renderToString(source, {
+          displayMode,
+          throwOnError: false,
+          strict: "ignore",
+          trust: false,
+        });
+      } catch (err) {
+        return escapeHtml(`${leftDelimiter}${source}${rightDelimiter}`);
+      }
     }
 
     function parseTableRow(line) {
@@ -400,6 +459,95 @@ createApp({
       if (!value) return null;
       const date = new Date(value);
       return Number.isNaN(date.getTime()) ? null : date;
+    }
+
+    function compareConversationsByDate(a, b) {
+      const aTime = conversationTime(a);
+      const bTime = conversationTime(b);
+      if (aTime !== bTime) {
+        return conversationSortOrder.value === "asc" ? aTime - bTime : bTime - aTime;
+      }
+      return String(a.title || "").localeCompare(String(b.title || ""), "zh-CN");
+    }
+
+    function conversationTime(conversation) {
+      const date = parseDate(conversation?.updated_at || conversation?.created_at);
+      return date ? date.getTime() : 0;
+    }
+
+    function conversationDayKey(conversation) {
+      const date = parseDate(conversation?.updated_at || conversation?.created_at);
+      if (!date) return "";
+      return toDayKey(date);
+    }
+
+    function toDayKey(date) {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
+      return `${year}-${month}-${day}`;
+    }
+
+    function buildConversationHeatmap(items) {
+      const counts = new Map();
+      let minTime = Infinity;
+      let maxTime = -Infinity;
+
+      items.forEach((conversation) => {
+        const key = conversationDayKey(conversation);
+        if (!key) return;
+        counts.set(key, (counts.get(key) || 0) + 1);
+        const time = new Date(`${key}T00:00:00`).getTime();
+        minTime = Math.min(minTime, time);
+        maxTime = Math.max(maxTime, time);
+      });
+
+      if (!counts.size) {
+        return { days: [], weeks: [], totalDays: 0, maxCount: 0 };
+      }
+
+      const maxSpanDays = 371;
+      const startTime = Math.max(minTime, maxTime - (maxSpanDays - 1) * 86400000);
+      const start = new Date(startTime);
+      const end = new Date(maxTime);
+      start.setDate(start.getDate() - start.getDay());
+      end.setDate(end.getDate() + (6 - end.getDay()));
+
+      const maxCount = Math.max(...counts.values());
+      const days = [];
+      const weeks = [];
+      const cursor = new Date(start);
+
+      while (cursor <= end) {
+        const key = toDayKey(cursor);
+        const count = counts.get(key) || 0;
+        const day = {
+          key,
+          count,
+          level: heatmapLevel(count, maxCount),
+          tooltip: `${key}: ${count} 场对话`,
+        };
+        days.push(day);
+
+        const weekIndex = Math.floor((days.length - 1) / 7);
+        if (!weeks[weekIndex]) weeks[weekIndex] = [];
+        weeks[weekIndex].push(day);
+
+        cursor.setDate(cursor.getDate() + 1);
+      }
+
+      return {
+        days,
+        weeks,
+        totalDays: counts.size,
+        maxCount,
+      };
+    }
+
+    function heatmapLevel(count, maxCount) {
+      if (!count) return 0;
+      if (maxCount <= 1) return 2;
+      return Math.max(1, Math.min(4, Math.ceil((count / maxCount) * 4)));
     }
 
     function getMigrationRange() {
@@ -619,6 +767,10 @@ ${projectText || "（未导入 projects，或导出包中无项目文件）"}
       }).format(new Date(value));
     }
 
+    function formatNumber(value) {
+      return new Intl.NumberFormat("zh-CN").format(Number(value || 0));
+    }
+
     watch(selectedConversation, () => {
       renderMermaid();
     });
@@ -641,7 +793,9 @@ ${projectText || "（未导入 projects，或导出包中无项目文件）"}
       query,
       isLoading,
       isDragging,
+      showProfileImport,
       viewMode,
+      conversationSortOrder,
       migrationRange,
       customStart,
       customEnd,
@@ -650,6 +804,7 @@ ${projectText || "（未导入 projects，或导出包中无项目文件）"}
       migrationPrompt,
       copyStatus,
       filteredConversations,
+      conversationHeatmap,
       handleFileChange,
       handleDrop,
       handleUsersFile,
@@ -667,6 +822,7 @@ ${projectText || "（未导入 projects，或导出包中无项目文件）"}
       blockLabel,
       formatDate,
       formatDateTime,
+      formatNumber,
     };
   },
 }).mount("#app");

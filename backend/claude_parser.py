@@ -180,10 +180,12 @@ def _build_stats(conversations: list[dict[str, Any]], warnings: list[str]) -> di
     sender_counts: Counter[str] = Counter()
     content_type_counts: Counter[str] = Counter()
     total_messages = 0
+    total_chars = 0
 
     for conversation in conversations:
         for message in conversation["messages"]:
             total_messages += 1
+            total_chars += len("".join(str(message.get("text") or "").split()))
             sender_counts[message["sender"]] += 1
             for block in message["blocks"]:
                 content_type_counts[block["type"]] += 1
@@ -191,6 +193,7 @@ def _build_stats(conversations: list[dict[str, Any]], warnings: list[str]) -> di
     return {
         "conversation_count": len(conversations),
         "message_count": total_messages,
+        "total_char_count": total_chars,
         "sender_counts": dict(sender_counts),
         "content_type_counts": dict(content_type_counts),
         "has_warnings": bool(warnings),

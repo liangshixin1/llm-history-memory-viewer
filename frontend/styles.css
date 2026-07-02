@@ -30,7 +30,7 @@ body {
 
 #app {
   display: grid;
-  grid-template-columns: 360px minmax(0, 1fr);
+  grid-template-columns: 340px minmax(0, 1fr);
   min-height: 100vh;
 }
 
@@ -39,7 +39,7 @@ body {
   top: 0;
   height: 100vh;
   overflow: auto;
-  padding: 24px;
+  padding: 20px;
   border-right: 1px solid var(--line);
   background: #fbfaf6;
 }
@@ -48,7 +48,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 22px;
+  margin-bottom: 18px;
 }
 
 .eyebrow {
@@ -78,8 +78,8 @@ h2 {
 .upload {
   display: grid;
   place-items: center;
-  min-height: 158px;
-  padding: 20px;
+  min-height: 132px;
+  padding: 18px;
   border: 1px dashed #afa596;
   border-radius: 8px;
   background: var(--panel);
@@ -147,8 +147,8 @@ h2 {
 }
 
 .support-import {
-  margin-top: 16px;
-  padding: 14px;
+  margin-top: 14px;
+  padding: 12px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--panel);
@@ -211,30 +211,136 @@ h2 {
   font-size: 12px;
 }
 
-.stats {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
-  margin: 18px 0;
-}
-
-.stats div {
+.stats-panel {
+  margin: 16px 0;
   padding: 12px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--panel);
 }
 
+.stats-panel > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  color: var(--accent-strong);
+  font-size: 14px;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  margin: 0;
+}
+
+.stats div {
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfaf6;
+}
+
 .stats span {
   display: block;
-  font-size: 24px;
+  font-size: 20px;
   font-weight: 800;
+}
+
+.heatmap {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.heatmap-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.heatmap-head strong {
+  font-size: 13px;
+}
+
+.heatmap-head small,
+.heatmap-legend {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.heatmap-grid {
+  display: grid;
+  grid-auto-flow: column;
+  grid-template-rows: repeat(7, 10px);
+  gap: 3px;
+  max-width: 100%;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.heatmap-day {
+  display: block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  background: #ebe5db;
+}
+
+.heatmap-day.level-1 {
+  background: #c9e7dd;
+}
+
+.heatmap-day.level-2 {
+  background: #8bcaba;
+}
+
+.heatmap-day.level-3 {
+  background: #409982;
+}
+
+.heatmap-day.level-4 {
+  background: #15594f;
+}
+
+.heatmap-legend {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 5px;
+  margin-top: 8px;
 }
 
 .search-row input {
   width: 100%;
   height: 42px;
   padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: white;
+  color: var(--ink);
+  font-size: 14px;
+}
+
+.sort-row {
+  margin-top: 12px;
+}
+
+.sort-row label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.sort-row select {
+  width: 100%;
+  height: 38px;
+  padding: 0 10px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: white;
@@ -280,7 +386,7 @@ h2 {
 .conversation-list {
   display: grid;
   gap: 8px;
-  margin-top: 14px;
+  margin-top: 12px;
 }
 
 .conversation-item {
