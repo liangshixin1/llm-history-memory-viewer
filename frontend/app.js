@@ -111,19 +111,8 @@ createApp({
       error.value = "";
       isLoading.value = true;
 
-      const formData = new FormData();
-      formData.append("file", file);
-
       try {
-        const response = await fetch("/api/parse", {
-          method: "POST",
-          body: formData,
-        });
-        const payload = await response.json();
-
-        if (!response.ok) {
-          throw new Error(payload.error || "解析失败。");
-        }
+        const payload = await window.ClaudeImporter.parseExportFile(file);
 
         conversations.value = payload.conversations || [];
         stats.value = payload.stats || null;

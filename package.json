@@ -3,10 +3,12 @@
   "private": true,
   "version": "0.1.0",
   "scripts": {
+    "build:single": "npm run prepare-vendor && node scripts/build-single-html.js",
     "postinstall": "node scripts/copy-vendor.js",
     "prepare-vendor": "node scripts/copy-vendor.js"
   },
   "dependencies": {
+    "jszip": "^3.10.1",
     "mermaid": "^10.9.3",
     "vue": "^3.5.39"
   }

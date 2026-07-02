@@ -9,20 +9,19 @@ function copyFile(source, target) {
   fs.copyFileSync(source, target);
 }
 
-function copyDir(source, target) {
-  fs.rmSync(target, { recursive: true, force: true });
-  fs.mkdirSync(target, { recursive: true });
-  fs.cpSync(source, target, { recursive: true });
-}
-
 copyFile(
   path.join(root, "node_modules", "vue", "dist", "vue.global.prod.js"),
   path.join(vendorDir, "vue.global.prod.js")
 );
 
-copyDir(
-  path.join(root, "node_modules", "mermaid", "dist"),
-  path.join(vendorDir, "mermaid")
+copyFile(
+  path.join(root, "node_modules", "jszip", "dist", "jszip.min.js"),
+  path.join(vendorDir, "jszip.min.js")
+);
+
+copyFile(
+  path.join(root, "node_modules", "mermaid", "dist", "mermaid.min.js"),
+  path.join(vendorDir, "mermaid.min.js")
 );
 
 console.log("Frontend vendor assets prepared.");
